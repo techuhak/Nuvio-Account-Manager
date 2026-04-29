@@ -83,24 +83,20 @@ function RefreshIcon() {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface KumaMonitor {
-  id: number
-  name: string
-  status: number
-  uptime24h?: number
-  latestPing?: number
-  latestMsg?: string
+interface GatusResult {
+  success: boolean
+  duration: number  // nanoseconds
+  conditionResults?: { condition: string; success: boolean }[]
+  timestamp: string
 }
-interface KumaGroup {
+interface GatusEndpoint {
   name: string
-  monitorList: KumaMonitor[]
+  group: string
+  key: string
+  results: GatusResult[]
 }
 interface StatusData {
-  page: { title: string; publicGroupList: KumaGroup[] }
-  heartbeat: {
-    heartbeatList: Record<string, { status: number; ping: number; time: string }[]>
-    uptimeList: Record<string, number>
-  } | null
+  endpoints: GatusEndpoint[]
 }
 
 // ─── Nav card ─────────────────────────────────────────────────────────────────
@@ -197,19 +193,12 @@ function StatusCard() {
     return () => clearInterval(interval)
   }, [fetchStatus])
 
-  const monitors: (KumaMonitor & { uptime24h?: number; latestPing?: number })[] = []
-  if (data?.page?.publicGroupList) {
-    for (const group of data.page.publicGroupList) {
-      for (const mon of group.monitorList) {
-        monitors.push(mon as KumaMonitor & { uptime24h?: number; latestPing?: number })
-      }
-    }
-  }
+  const endpoints: GatusEndpoint[] = data?.endpoints ?? []
 
-  const allUp = monitors.length > 0 && monitors.every(m => m.status === 1)
-  const anyDown = monitors.some(m => m.status === 0)
+  const allUp = endpoints.length > 0 && endpoints.every(e => e.results?.[0]?.success === true)
+  const anyDown = endpoints.some(e => e.results?.[0]?.success === false)
   const overallColor = anyDown ? '#ef4444' : allUp ? '#22c55e' : '#f59e0b'
-  const overallLabel = anyDown ? 'Degraded' : allUp ? 'All Systems Operational' : 'Partial Outage'
+  const overallLabel = anyDown ? 'Degraded' : allUp ? 'All Systems Operational' : 'Checking…'
 
   return (
     <div style={{ background: '#111118', border: '1px solid var(--border)', borderRadius: 16, padding: isMobile ? 20 : 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -246,7 +235,7 @@ function StatusCard() {
       </div>
 
       {/* Overall banner */}
-      {!loading && !error && monitors.length > 0 && (
+      {!loading && !error && endpoints.length > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           background: `${overallColor}10`, border: `1px solid ${overallColor}30`,
@@ -266,35 +255,39 @@ function StatusCard() {
         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: 14, fontSize: 13, color: 'var(--error)', textAlign: 'center' }}>
           Could not load status data — {error}
           <br />
-          <a href="https://status.dinsden.top/status/stremio-addons" target="_blank" rel="noopener noreferrer"
+          <a href="https://status.stremio-status.com" target="_blank" rel="noopener noreferrer"
             style={{ color: 'var(--accent)', fontSize: 12, marginTop: 6, display: 'inline-block' }}>
-            View directly on status.dinsden.top →
+            View directly on status.stremio-status.com →
           </a>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-          {monitors.map(mon => (
-            <div key={mon.id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 8, padding: '10px 14px', gap: 8,
-            }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{mon.name}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {mon.uptime24h !== undefined && (
-                    <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                      {(mon.uptime24h * 100).toFixed(1)}% uptime
-                    </span>
-                  )}
-                  {mon.latestPing !== undefined && mon.latestPing !== null && (
-                    <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{mon.latestPing}ms</span>
-                  )}
+          {endpoints.map(ep => {
+            const latest = ep.results?.[0]
+            const up = latest?.success === true
+            const pingMs = latest ? Math.round(latest.duration / 1_000_000) : null
+            const statusNum = latest ? (up ? 1 : 0) : -1
+            return (
+              <div key={ep.key} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '10px 14px', gap: 8,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{ep.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {ep.group && (
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{ep.group}</span>
+                    )}
+                    {pingMs !== null && pingMs > 0 && (
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{pingMs}ms</span>
+                    )}
+                  </div>
                 </div>
+                <StatusDot status={statusNum} />
               </div>
-              <StatusDot status={mon.status} />
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -359,7 +352,7 @@ export default function Home() {
           }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>
-              Nuvio Account Manager
+              Nuvio Account Cloner
             </span>
           </div>
           <h1 style={{ fontSize: isMobile ? 28 : 42, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.1, marginBottom: 16 }}>
@@ -390,26 +383,8 @@ export default function Home() {
             onClick={() => router.push('/manage')}
           />
         </div>
-        {/* Bottom two cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          <Card
-            icon={<CollectionsBuilderIcon />}
-            title="Collections Builder"
-            description="Build and manage your Nuvio collections with a visual editor powered by your installed addons."
-            bullets={['Load your existing collections', 'Remap catalog sources to your addons', 'Configure display settings & tile shapes', 'Push individual or all collections']}
-            accent="#14b8a6"
-            onClick={() => router.push('/collections')}
-          />
-          <Card
-            icon={<MigrateIcon />}
-            title="Migrate from Stremio"
-            description="Move your entire Stremio setup to Nuvio — addons, library, watch history, and continue watching."
-            bullets={['Pick addons individually to migrate', 'Import library & watch history', 'Restore continue watching progress', 'Nothing in Stremio gets changed']}
-            accent="#f97316"
-            onClick={() => router.push('/migrate')}
-          />
-        </div>
-{/* Links card — full width */}
+
+        {/* Links card — full width */}
         <div style={{ marginBottom: 16 }}>
           <button onClick={() => router.push('/links')}
             style={{
@@ -452,6 +427,27 @@ export default function Home() {
             </div>
           </button>
         </div>
+
+        {/* Bottom two cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <Card
+            icon={<CollectionsBuilderIcon />}
+            title="Collections Builder"
+            description="Build and manage your Nuvio collections with a visual editor powered by your installed addons."
+            bullets={['Load your existing collections', 'Remap catalog sources to your addons', 'Configure display settings & tile shapes', 'Push individual or all collections']}
+            accent="#14b8a6"
+            onClick={() => router.push('/collections')}
+          />
+          <Card
+            icon={<MigrateIcon />}
+            title="Migrate from Stremio"
+            description="Move your entire Stremio setup to Nuvio — addons, library, watch history, and continue watching."
+            bullets={['Pick addons individually to migrate', 'Import library & watch history', 'Restore continue watching progress', 'Nothing in Stremio gets changed']}
+            accent="#f97316"
+            onClick={() => router.push('/migrate')}
+          />
+        </div>
+
         {/* Status card */}
         <div style={{ marginBottom: 32 }}>
           <StatusCard />
