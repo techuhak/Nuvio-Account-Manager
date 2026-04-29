@@ -164,164 +164,38 @@ function StatusDot({ status }: { status: number }) {
 
 function StatusCard() {
   const isMobile = useIsMobile()
-  const [data, setData] = useState<StatusData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-
-  const fetchStatus = useCallback(async (isManual = false) => {
-    if (isManual) setRefreshing(true)
-    try {
-      const res = await fetch('/api/status')
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to fetch')
-      setData(json)
-      setLastUpdated(new Date())
-      setError('')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to fetch status')
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchStatus()
-    const interval = setInterval(() => fetchStatus(), 60000)
-    return () => clearInterval(interval)
-  }, [fetchStatus])
-
-  const endpoints: GatusEndpoint[] = data?.endpoints ?? []
-
-  const allUp = endpoints.length > 0 && endpoints.every(e => e.results?.[0]?.success === true)
-  const anyDown = endpoints.some(e => e.results?.[0]?.success === false)
-  const overallColor = anyDown ? '#ef4444' : allUp ? '#22c55e' : '#f59e0b'
-  const overallLabel = anyDown ? 'Degraded' : allUp ? 'All Systems Operational' : 'Checking…'
-
   return (
-    <div style={{ background: '#111118', border: '1px solid var(--border)', borderRadius: 16, padding: isMobile ? 20 : 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ background: '#111118', border: '1px solid var(--border)', borderRadius: 16, padding: isMobile ? 20 : 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-            background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.25)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fb923c',
-          }}><StatusIcon /></div>
-          <div>
-            <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 3, color: 'var(--text)', letterSpacing: '-0.01em' }}>Service Status</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Live status for Stremio addons &amp; debrid services</p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-          <button onClick={() => fetchStatus(true)} disabled={refreshing}
-            style={{
-              background: 'transparent', border: '1px solid var(--border)', borderRadius: 6,
-              padding: '5px 10px', cursor: refreshing ? 'not-allowed' : 'pointer',
-              color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5,
-              fontSize: 12, fontWeight: 600, fontFamily: 'inherit', opacity: refreshing ? 0.5 : 1,
-            }}>
-            <RefreshIcon /> {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-          {lastUpdated && (
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right' }}>
-              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              {!isMobile && ' · auto-refreshes every 60s'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Overall banner */}
-      {!loading && !error && endpoints.length > 0 && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          background: `${overallColor}10`, border: `1px solid ${overallColor}30`,
-          borderRadius: 8, padding: '10px 14px',
-        }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: overallColor, boxShadow: `0 0 8px ${overallColor}`, flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: overallColor }}>{overallLabel}</span>
+          width: 48, height: 48, borderRadius: 12, flexShrink: 0,
+          background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fb923c',
+        }}><StatusIcon /></div>
+        <div>
+          <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 3, color: 'var(--text)', letterSpacing: '-0.01em' }}>Service Status</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Live status for Stremio addons &amp; debrid services</p>
         </div>
-      )}
-
-      {/* Monitor grid */}
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[1,2,3,4,5,6].map(i => <div key={i} className="shimmer" style={{ height: 44, borderRadius: 8 }} />)}
-        </div>
-      ) : error ? (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: 14, fontSize: 13, color: 'var(--error)', textAlign: 'center' }}>
-          Could not load status data — {error}
-          <br />
-          <a href="https://status.stremio-status.com" target="_blank" rel="noopener noreferrer"
-            style={{ color: 'var(--accent)', fontSize: 12, marginTop: 6, display: 'inline-block' }}>
-            View directly on status.stremio-status.com →
-          </a>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-          {endpoints.map(ep => {
-            const latest = ep.results?.[0]
-            const up = latest?.success === true
-            const pingMs = latest ? Math.round(latest.duration / 1_000_000) : null
-            const statusNum = latest ? (up ? 1 : 0) : -1
-            return (
-              <div key={ep.key} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: '10px 14px', gap: 8,
-              }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 3 }}>{ep.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {ep.group && (
-                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{ep.group}</span>
-                    )}
-                    {pingMs !== null && pingMs > 0 && (
-                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{pingMs}ms</span>
-                    )}
-                  </div>
-                </div>
-                <StatusDot status={statusNum} />
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Divider */}
-      <div style={{ height: 1, background: 'var(--border)' }} />
-
-      {/* Real-Debrid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-          Debrid Services
-        </div>
-        <a href="https://debridmediamanager.com/is-real-debrid-down-or-just-me" target="_blank" rel="noopener noreferrer"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '12px 14px', textDecoration: 'none', transition: 'border-color 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb923c' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>Is Real-Debrid down?</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Check live status on debridmediamanager.com</div>
-          </div>
-          <div style={{ color: 'var(--text-muted)', flexShrink: 0 }}><ExternalIcon /></div>
-        </a>
       </div>
 
-      {/* Source link */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <a href="https://status.dinsden.top/status/stremio-addons" target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-          Full status page <ExternalIcon />
-        </a>
-      </div>
+      {/* Stremio Status link */}
+      <a href="https://status.stremio-status.com" target="_blank" rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--bg)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '12px 14px', textDecoration: 'none', transition: 'border-color 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb923c' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>Addon & Service Status</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>status.stremio-status.com</div>
+        </div>
+        <div style={{ color: 'var(--text-muted)', flexShrink: 0 }}><ExternalIcon /></div>
+      </a>
+
+      
     </div>
   )
 }
