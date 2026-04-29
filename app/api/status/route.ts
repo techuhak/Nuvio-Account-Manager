@@ -5,7 +5,15 @@ const API_URL = `${GATUS_BASE}/api/v1/endpoints/statuses`
 
 export async function GET() {
   try {
-    const res = await fetch(API_URL, { cache: 'no-store' })
+    const res = await fetch(API_URL, {
+      cache: 'no-store',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://status.stremio-status.com/',
+        'Origin': 'https://status.stremio-status.com',
+      },
+    })
     if (!res.ok) throw new Error(`Status API returned ${res.status}`)
     const data = await res.json()
 
