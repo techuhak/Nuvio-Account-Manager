@@ -13,10 +13,27 @@ interface CatalogSource {
   catalogId: string
 }
 
+interface NativeSource {
+  provider: 'addon' | 'tmdb' | 'trakt'
+  addonId?: string
+  catalogId?: string
+  type?: string
+  tmdbId?: number
+  tmdbSourceType?: string
+  mediaType?: string
+  title?: string
+  sortBy?: string
+  filters?: Record<string, unknown>
+  listId?: string
+  listType?: string
+  username?: string
+}
+
 interface CollectionFolder {
   id: string
   title: string
   catalogSources?: CatalogSource[]
+  sources?: NativeSource[]
   coverImageUrl?: string
   tileShape?: 'LANDSCAPE' | 'SQUARE' | 'POSTER'
   focusGifEnabled?: boolean
@@ -274,7 +291,9 @@ function FolderEditor({ folder, options, onChange, onDelete, onMoveUp, onMoveDow
   const [expanded, setExpanded] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const sources = folder.catalogSources ?? []
-  const matchedCount = sources.filter(s => isSourceMatched(s, options)).length
+  const nativeSourceCount = (folder.sources ?? []).filter(s => s.provider !== 'addon').length
+  const matchedCount = sources.filter(s => isSourceMatched(s, options)).length + nativeSourceCount
+  const totalCount = sources.length + nativeSourceCount
 
   function addSource() {
     if (options.length === 0) return
@@ -306,8 +325,8 @@ function FolderEditor({ folder, options, onChange, onDelete, onMoveUp, onMoveDow
           />
         </div>
 
-        <span style={{ fontSize: 10, color: matchedCount === sources.length && sources.length > 0 ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }}>
-          {matchedCount}/{sources.length}
+        <span style={{ fontSize: 10, color: matchedCount === totalCount && totalCount > 0 ? '#22c55e' : 'var(--text-muted)', flexShrink: 0 }}>
+          {matchedCount}/{totalCount}
         </span>
 
         {/* Move up/down */}
@@ -396,6 +415,44 @@ function FolderEditor({ folder, options, onChange, onDelete, onMoveUp, onMoveDow
               onDelete={() => onChange({ ...folder, catalogSources: sources.filter((_, j) => j !== i) })}
             />
           ))}
+          {(() => {
+            const nativeSources = (folder.sources ?? []).filter(s => s.provider !== 'addon')
+            if (nativeSources.length === 0) return null
+            return (
+              <div style={{ marginTop: sources.length > 0 ? 4 : 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 5 }}>
+                  Native Sources
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {nativeSources.map((s, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 7,
+                      background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)',
+                    }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+                        background: s.provider === 'tmdb' ? 'rgba(1,180,228,0.15)' : 'rgba(237,72,27,0.15)',
+                        color: s.provider === 'tmdb' ? '#01b4e4' : '#ed481b',
+                        border: `1px solid ${s.provider === 'tmdb' ? 'rgba(1,180,228,0.3)' : 'rgba(237,72,27,0.3)'}`,
+                        borderRadius: 4, padding: '1px 5px', flexShrink: 0,
+                      }}>{s.provider.toUpperCase()}</span>
+                      <span style={{ flex: 1, fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.title ?? s.listId ?? '—'}
+                      </span>
+                      {(s.tmdbSourceType || s.mediaType) && (
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
+                          {[s.tmdbSourceType, s.mediaType].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 5 }}>
+                  Managed in the Nuvio app — cannot be edited here.
+                </div>
+              </div>
+            )
+          })()}
           <button onClick={addSource} disabled={options.length === 0}
             style={{
               background: 'transparent', border: '1px dashed var(--border)', borderRadius: 6,
@@ -432,8 +489,8 @@ function CollectionCard({ collection, options, onChange, onDelete, onPush, pushi
   const [expanded, setExpanded] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const folders = collection.folders ?? []
-  const totalSources = folders.reduce((a, f) => a + (f.catalogSources?.length ?? 0), 0)
-  const matchedSources = folders.reduce((a, f) => a + (f.catalogSources?.filter(s => isSourceMatched(s, options)).length ?? 0), 0)
+  const totalSources = folders.reduce((a, f) => a + (f.catalogSources?.length ?? 0) + (f.sources?.filter(s => s.provider !== 'addon').length ?? 0), 0)
+  const matchedSources = folders.reduce((a, f) => a + (f.catalogSources?.filter(s => isSourceMatched(s, options)).length ?? 0) + (f.sources?.filter(s => s.provider !== 'addon').length ?? 0), 0)
   const fullyMatched = totalSources > 0 && matchedSources === totalSources
   const pct = totalSources > 0 ? Math.round((matchedSources / totalSources) * 100) : 0
   const barColor = fullyMatched ? '#22c55e' : pct > 50 ? '#f59e0b' : '#ef4444'
@@ -815,28 +872,44 @@ export default function CollectionsBuilder() {
 
   async function pushAll() {
     setPushing('__all__')
-    try {
-      const res = await fetch('/api/manage/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, profileId: selectedProfile, type: 'collections_replace', data: collections }),
-      })
-      if (!res.ok) throw new Error()
-      const results: Record<string, 'success'> = {}
-      collections.forEach(c => { results[c.id] = 'success' })
-      setPushResults(results); setDirty(false)
-    } catch {
-      const results: Record<string, 'error'> = {}
-      collections.forEach(c => { results[c.id] = 'error' })
-      setPushResults(results)
-    } finally { setPushing(null) }
+    const BATCH_SIZE = 5
+    const BATCH_DELAY_MS = 400
+    const results: Record<string, 'success' | 'error'> = {}
+
+    const serialize = (col: Collection): Collection => ({
+      ...col,
+      folders: (col.folders ?? []).map(f => ({ ...f, catalogSources: f.catalogSources, sources: f.sources })),
+    })
+
+    for (let i = 0; i < collections.length; i += BATCH_SIZE) {
+      const batch = collections.slice(i, i + BATCH_SIZE)
+      await Promise.all(batch.map(async col => {
+        try {
+          const res = await fetch('/api/manage/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, profileId: selectedProfile, type: 'collections', data: [serialize(col)] }),
+          })
+          results[col.id] = res.ok ? 'success' : 'error'
+        } catch {
+          results[col.id] = 'error'
+        }
+      }))
+      if (i + BATCH_SIZE < collections.length) {
+        await new Promise(r => setTimeout(r, BATCH_DELAY_MS))
+      }
+    }
+
+    setPushResults(results)
+    if (collections.every(c => results[c.id] === 'success')) setDirty(false)
+    setPushing(null)
   }
 
   const profileName = (idx: number) => profiles.find(p => p.profile_index === idx)?.name ?? `Profile ${idx}`
 
   const isLoggedIn = !!token
-  const totalSources = collections.reduce((a, c) => a + (c.folders ?? []).reduce((b, f) => b + (f.catalogSources?.length ?? 0), 0), 0)
-  const matchedSources = collections.reduce((a, c) => a + (c.folders ?? []).reduce((b, f) => b + (f.catalogSources?.filter(s => isSourceMatched(s, catalogOptions)).length ?? 0), 0), 0)
+  const totalSources = collections.reduce((a, c) => a + (c.folders ?? []).reduce((b, f) => b + (f.catalogSources?.length ?? 0) + (f.sources?.filter(s => s.provider !== 'addon').length ?? 0), 0), 0)
+  const matchedSources = collections.reduce((a, c) => a + (c.folders ?? []).reduce((b, f) => b + (f.catalogSources?.filter(s => isSourceMatched(s, catalogOptions)).length ?? 0) + (f.sources?.filter(s => s.provider !== 'addon').length ?? 0), 0), 0)
   const overallPct = totalSources > 0 ? Math.round((matchedSources / totalSources) * 100) : 0
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -905,7 +978,7 @@ export default function CollectionsBuilder() {
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Profile</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {[1,2,3,4].map(i => (
+                {[1,2,3,4,5].map(i => (
                   <button key={i} onClick={() => setSelectedProfile(i)}
                     style={{
                       background: selectedProfile === i ? '#14b8a6' : 'var(--bg)',
@@ -989,7 +1062,7 @@ export default function CollectionsBuilder() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', width: '100%' }}>
-                {[1,2,3,4].map(i => (
+                {[1,2,3,4,5].map(i => (
                   <button key={i} onClick={() => handleProfileSwitch(i)} disabled={loadingData}
                     style={{
                       background: selectedProfile === i ? '#14b8a6' : 'transparent',

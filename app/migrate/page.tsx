@@ -501,7 +501,7 @@ export default function MigratePage() {
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Target Profile</label>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {[1,2,3,4].map(i => (
+                    {[1,2,3,4,5].map(i => (
                       <button key={i} onClick={() => setNuvioProfile(i)}
                         style={{
                           background: nuvioProfile === i ? '#22c55e' : 'var(--bg)',
