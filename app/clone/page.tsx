@@ -271,7 +271,7 @@ function TargetRow({ target, index, onUpdate, onRemove, sourceProfiles, availabi
               padding: '10px 12px', color: 'var(--text)', fontFamily: 'inherit',
               fontSize: 13, width: '100%', outline: 'none', opacity: locked ? 0.5 : 1,
             }}>
-            {[1, 2, 3, 4].map(i => {
+            {[1, 2, 3, 4, 5].map(i => {
               const label = sourceProfiles.find(p => p.profile_index === i)?.name
               return <option key={i} value={i}>Profile {i}{label ? ` — ${label}` : ''}</option>
             })}
