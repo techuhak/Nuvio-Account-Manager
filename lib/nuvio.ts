@@ -1,5 +1,7 @@
-const SUPABASE_URL = 'https://dpyhjjcoabcglfmgecug.supabase.co'
-const PUBLISHABLE_KEY = 'sb_publishable_zcNkgqGJjBtj8GoRlMvl9A_zkdmXhf5'
+const SUPABASE_URL = process.env.NUVIO_SUPABASE_URL ?? 'https://api.nuvio.tv'
+const PUBLISHABLE_KEY =
+  process.env.NUVIO_SUPABASE_ANON_KEY ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI'
 
 export interface NuvioAddon {
   id?: string; user_id?: string; profile_id: number
@@ -14,7 +16,9 @@ export interface NuvioPlugin {
 export interface NuvioProfile {
   id: string; user_id: string; profile_index: number; name: string
   avatar_color_hex: string; uses_primary_addons: boolean; uses_primary_plugins: boolean
-  avatar_id: string | null; created_at: string; updated_at: string
+  avatar_id: string | null; avatar_url: string | null
+  pin_enabled: boolean; pin_locked_until: string | null
+  created_at: string; updated_at: string
 }
 export interface AuthResult {
   access_token: string; refresh_token: string; user: { id: string; email: string }
@@ -146,12 +150,25 @@ export async function updateProfile(
   profileId: number,
   name: string
 ): Promise<void> {
-  await apiFetch(`/rest/v1/profiles?profile_index=eq.${profileId}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Prefer': 'return=minimal',
-    },
-    body: JSON.stringify({ name }),
+  // Nuvio no longer allows direct writes to the profiles table. Profile changes
+  // now go through the sync_push_profiles RPC, which expects the full set of
+  // profiles plus the client's max-profile cap.
+  const profiles = await getProfiles(token)
+  if (!profiles.some((p) => p.profile_index === profileId)) {
+    throw new Error(`Profile ${profileId} not found`)
+  }
+  const p_profiles = profiles.map((p) => ({
+    profile_index: p.profile_index,
+    name: p.profile_index === profileId ? name : p.name,
+    avatar_color_hex: p.avatar_color_hex,
+    uses_primary_addons: p.uses_primary_addons,
+    uses_primary_plugins: p.uses_primary_plugins,
+    avatar_id: p.avatar_id,
+    avatar_url: p.avatar_url,
+  }))
+  await apiFetch('/rest/v1/rpc/sync_push_profiles', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ p_profiles, p_client_max_profiles: 6 }),
   })
 }
