@@ -1,6 +1,9 @@
 const SUPABASE_URL = process.env.NUVIO_SUPABASE_URL ?? 'https://api.nuvio.tv'
 // Officially documented Nuvio publishable key for third-party integrations
 // (https://nuvio.tv/docs). Overridable via env for future rotations.
+// If this key is ever rejected, the legacy Supabase anon JWT still works as an
+// alternate (also public / RLS-protected) — set it via NUVIO_SUPABASE_ANON_KEY:
+// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
 const PUBLISHABLE_KEY =
   process.env.NUVIO_SUPABASE_ANON_KEY ??
   'sb_publishable_1Clq8rlTVACkdcZuqr6_AD__xUUC_EN'
