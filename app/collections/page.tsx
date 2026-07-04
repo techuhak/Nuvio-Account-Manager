@@ -978,7 +978,7 @@ export default function CollectionsBuilder() {
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Profile</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {[1,2,3,4,5].map(i => (
+                {[1,2,3,4,5,6].map(i => (
                   <button key={i} onClick={() => setSelectedProfile(i)}
                     style={{
                       background: selectedProfile === i ? '#14b8a6' : 'var(--bg)',
@@ -1062,7 +1062,7 @@ export default function CollectionsBuilder() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', width: '100%' }}>
-                {[1,2,3,4,5].map(i => (
+                {[1,2,3,4,5,6].map(i => (
                   <button key={i} onClick={() => handleProfileSwitch(i)} disabled={loadingData}
                     style={{
                       background: selectedProfile === i ? '#14b8a6' : 'transparent',
