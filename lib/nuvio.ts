@@ -1,7 +1,9 @@
 const SUPABASE_URL = process.env.NUVIO_SUPABASE_URL ?? 'https://api.nuvio.tv'
+// Officially documented Nuvio publishable key for third-party integrations
+// (https://nuvio.tv/docs). Overridable via env for future rotations.
 const PUBLISHABLE_KEY =
   process.env.NUVIO_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI'
+  'sb_publishable_1Clq8rlTVACkdcZuqr6_AD__xUUC_EN'
 
 export interface NuvioAddon {
   id?: string; user_id?: string; profile_id: number
